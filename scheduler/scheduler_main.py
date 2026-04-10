@@ -60,7 +60,7 @@ def main():
 
     logger.info("Scheduler started. Jobs:")
     for job in scheduler.get_jobs():
-        logger.info("  %s — next run: %s", job.name, job.next_run_time)
+        logger.info("  %s (id=%s)", job.name, job.id)
 
     try:
         scheduler.start()
