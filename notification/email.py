@@ -346,9 +346,124 @@ def _game_block(gd: dict) -> str:
           </td>
         </tr>'''}
 
+        <!-- Lineups -->
+        {_lineup_section(ctx, away_short, home_short)}
+
       </table>
     </td>
   </tr>"""
+
+
+def _lineup_section(ctx, away_short: str, home_short: str) -> str:
+    """
+    Render a two-column batting order table for both teams.
+    Shows: order, name, position, xwOBA, OBP, SLG.
+    Returns empty string if no lineup data available.
+    """
+    if ctx is None:
+        return ""
+
+    away_lineup = getattr(ctx, "away_lineup", []) or []
+    home_lineup = getattr(ctx, "home_lineup", []) or []
+
+    if not away_lineup and not home_lineup:
+        return ""
+
+    def _team_rows(lineup, is_confirmed: bool) -> str:
+        if not lineup:
+            return '<tr><td colspan="5" style="padding:6px;font-size:11px;color:#94a3b8;font-style:italic;">Lineup TBD</td></tr>'
+        rows = []
+        confirmed_label = (
+            '<span style="font-size:9px;color:#16a34a;font-weight:700;'
+            'background:#dcfce7;padding:1px 5px;border-radius:3px;margin-left:4px;">✓ CONFIRMED</span>'
+            if is_confirmed else
+            '<span style="font-size:9px;color:#d97706;font-weight:700;'
+            'background:#fef3c7;padding:1px 5px;border-radius:3px;margin-left:4px;">PROJECTED</span>'
+        )
+        rows.append(
+            f'<tr><td colspan="5" style="padding:4px 6px 6px 6px;">'
+            f'<span style="font-size:10px;font-weight:700;color:#64748b;'
+            f'text-transform:uppercase;letter-spacing:.5px;">Batting Order</span>'
+            f'{confirmed_label}</td></tr>'
+        )
+        # Header row
+        rows.append(
+            '<tr style="background:#f8fafc;">'
+            '<td style="padding:3px 6px;font-size:9px;color:#94a3b8;font-weight:700;width:18px;">#</td>'
+            '<td style="padding:3px 6px;font-size:9px;color:#94a3b8;font-weight:700;">PLAYER</td>'
+            '<td style="padding:3px 6px;font-size:9px;color:#94a3b8;font-weight:700;text-align:center;width:28px;">POS</td>'
+            '<td style="padding:3px 6px;font-size:9px;color:#94a3b8;font-weight:700;text-align:right;width:40px;">xwOBA</td>'
+            '<td style="padding:3px 6px;font-size:9px;color:#94a3b8;font-weight:700;text-align:right;width:40px;">OPS</td>'
+            '</tr>'
+        )
+        for i, batter in enumerate(sorted(lineup, key=lambda b: getattr(b, "batting_order", 9))):
+            name   = getattr(batter, "player_name", "")
+            order  = getattr(batter, "batting_order", i + 1)
+            pos    = getattr(batter, "position", "")
+            xwoba  = getattr(batter, "xwoba", None)
+            obp    = getattr(batter, "obp", None)
+            slg    = getattr(batter, "slg", None)
+            ops    = (obp + slg) if (obp and slg) else None
+
+            # Color-code xwOBA: great ≥.380, good ≥.340, avg ≥.300
+            if xwoba is not None:
+                if xwoba >= 0.380:
+                    xwoba_color = "#15803d"   # green
+                elif xwoba >= 0.340:
+                    xwoba_color = "#1a56db"   # blue
+                elif xwoba >= 0.300:
+                    xwoba_color = "#334155"   # dark gray
+                else:
+                    xwoba_color = "#94a3b8"   # muted
+                xwoba_str = f'<span style="color:{xwoba_color};font-weight:600;">{xwoba:.3f}</span>'
+            else:
+                xwoba_str = '<span style="color:#cbd5e1;">—</span>'
+
+            ops_str = f"{ops:.3f}" if ops else "—"
+            bg = "background:#fafafa;" if i % 2 == 0 else ""
+
+            rows.append(
+                f'<tr style="{bg}">'
+                f'<td style="padding:4px 6px;font-size:11px;color:#94a3b8;">{order}</td>'
+                f'<td style="padding:4px 6px;font-size:11px;color:#1e293b;font-weight:500;">{name}</td>'
+                f'<td style="padding:4px 6px;font-size:10px;color:#64748b;text-align:center;">{pos}</td>'
+                f'<td style="padding:4px 6px;font-size:11px;text-align:right;">{xwoba_str}</td>'
+                f'<td style="padding:4px 6px;font-size:11px;color:#475569;text-align:right;">{ops_str}</td>'
+                f'</tr>'
+            )
+        return "\n".join(rows)
+
+    away_confirmed = any(getattr(b, "is_confirmed", False) for b in away_lineup) if away_lineup else False
+    home_confirmed = any(getattr(b, "is_confirmed", False) for b in home_lineup) if home_lineup else False
+
+    away_rows = _team_rows(away_lineup, away_confirmed)
+    home_rows = _team_rows(home_lineup, home_confirmed)
+
+    return f"""
+        <tr>
+          <td style="padding:0 20px 16px 20px;border-top:1px solid #f1f5f9;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;">
+              <tr>
+                <!-- Away lineup -->
+                <td width="50%" style="vertical-align:top;padding-right:10px;">
+                  <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:6px;">{away_short}</div>
+                  <table width="100%" cellpadding="0" cellspacing="0"
+                         style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+                    {away_rows}
+                  </table>
+                </td>
+                <!-- Home lineup -->
+                <td width="50%" style="vertical-align:top;padding-left:10px;">
+                  <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:6px;">{home_short}</div>
+                  <table width="100%" cellpadding="0" cellspacing="0"
+                         style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+                    {home_rows}
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>"""
 
 
 def _send_via_resend(
