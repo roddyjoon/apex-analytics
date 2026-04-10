@@ -154,7 +154,7 @@ def run_pregame_job(
     if not dry_run and result["updated_games"] > 0 and result["report_path"]:
         if send_email:
             _send_pregame_email(result["report_path"], game_date,
-                                result["updated_games"])
+                                result["updated_games"], games_data)
         if send_discord:
             _send_pregame_discord(games_data, result["report_path"], game_date,
                                   result["updated_games"])
@@ -319,12 +319,13 @@ def _save_updated_results(games_data: list, game_date: date) -> None:
 
 
 def _send_pregame_email(
-    report_path: str, game_date: date, n_updated: int
+    report_path: str, game_date: date, n_updated: int, games_data: list = None
 ) -> None:
     try:
         from notification.email import send_report_email
         ok = send_report_email(
             report_path, game_date,
+            games_data=games_data,
             subject_suffix=f"Pre-Game Update ({n_updated} lineups confirmed)"
         )
         if ok:
