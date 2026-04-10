@@ -116,7 +116,7 @@ def should_remove_starter(
         adjusted_prob *= 0.65
 
     # Days rest: well-rested starters go deeper
-    if pitcher.days_rest >= 6:
+    if (pitcher.days_rest or 0) >= 6:
         adjusted_prob *= 0.85
 
     # Cap at 1.0
