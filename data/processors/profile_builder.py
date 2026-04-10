@@ -371,7 +371,7 @@ def build_lineup_profiles(
 
         profile = build_batter_profile(
             player_id=pid,
-            player_name=slot.get("player_name", f"Player {pid}"),
+            player_name=slot.get("player_name") or _resolve_player_name_from_api(pid),
             batting_order=slot.get("batting_order", 9),
             position=slot.get("position", ""),
             bats=bats,
@@ -386,6 +386,42 @@ def build_lineup_profiles(
     # Sort by batting order
     profiles.sort(key=lambda p: p.batting_order)
     return profiles
+
+
+# ---------------------------------------------------------------------------
+# Player name resolver
+# ---------------------------------------------------------------------------
+
+def _resolve_player_name_from_api(player_id: int) -> str:
+    """Look up a player's full name from DB or MLB Stats API."""
+    try:
+        from data.cache.db import get_player
+        rec = get_player(player_id)
+        if rec and rec.get("player_name"):
+            return rec["player_name"]
+    except Exception:
+        pass
+    try:
+        import requests as _req
+        resp = _req.get(
+            f"https://statsapi.mlb.com/api/v1/people/{player_id}",
+            params={"fields": "people,id,fullName"},
+            timeout=8,
+        )
+        if resp.ok:
+            people = resp.json().get("people", [])
+            if people:
+                name = people[0].get("fullName", "")
+                if name:
+                    try:
+                        from data.cache.db import upsert_player
+                        upsert_player({"player_id": player_id, "player_name": name})
+                    except Exception:
+                        pass
+                    return name
+    except Exception:
+        pass
+    return f"Player {player_id}"
 
 
 # ---------------------------------------------------------------------------

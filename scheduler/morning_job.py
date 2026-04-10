@@ -130,7 +130,7 @@ def run_morning_job(
     # ── Step 6: Send notifications ─────────────────────────────────
     if not dry_run and report_path:
         if send_email:
-            _send_email_notification(report_path, game_date)
+            _send_email_notification(report_path, game_date, games_data)
         if send_discord:
             _send_discord_notification(games_data, report_path, game_date)
 
@@ -469,10 +469,10 @@ def _save_results_to_db(games_data: list, game_date: date, report_type: str) -> 
         logger.warning("DB save failed (non-critical): %s", exc)
 
 
-def _send_email_notification(report_path: str, game_date: date) -> None:
+def _send_email_notification(report_path: str, game_date: date, games_data: list = None) -> None:
     try:
         from notification.email import send_report_email
-        ok = send_report_email(report_path, game_date)
+        ok = send_report_email(report_path, game_date, games_data=games_data)
         if ok:
             logger.info("Email report sent.")
         else:

@@ -181,7 +181,7 @@ def _fetch_historical_batting_order(
         modal_lineup.append({
             "batting_order": slot,
             "player_id": player_id,
-            "player_name": f"Player {player_id}",  # Name resolved in profile_builder
+            "player_name": _resolve_player_name(player_id),
             "position": "",
             "is_confirmed": False,
             "source": "historical",
@@ -292,7 +292,7 @@ def _build_roster_lineup(team_id: int, game_date: date, season: int) -> list[dic
         lineup.append({
             "batting_order": idx,
             "player_id": p["player_id"],
-            "player_name": p.get("full_name", f"Player {p['player_id']}"),
+            "player_name": p.get("full_name") or _resolve_player_name(p["player_id"]),
             "position": p.get("position", ""),
             "is_confirmed": False,
             "source": "roster",
@@ -324,3 +324,45 @@ def _persist_lineup(game_pk: int, team_id: int, team_abbr: str,
         save_lineups(game_pk, team_id, team_abbr, lineup, report_type)
     except Exception as exc:
         logger.warning("Could not persist lineup to DB: %s", exc)
+
+
+def _resolve_player_name(player_id: int) -> str:
+    """
+    Look up a player's full name from the MLB Stats API or the DB cache.
+    Falls back to fetching the player page if not already stored.
+    Returns a human-readable name, never a raw ID string.
+    """
+    # 1. Check DB first
+    try:
+        from data.cache.db import get_player
+        rec = get_player(player_id)
+        if rec and rec.get("player_name"):
+            return rec["player_name"]
+    except Exception:
+        pass
+
+    # 2. Fetch from MLB Stats API
+    try:
+        import requests
+        resp = requests.get(
+            f"https://statsapi.mlb.com/api/v1/people/{player_id}",
+            params={"fields": "people,id,fullName"},
+            timeout=8,
+        )
+        if resp.ok:
+            people = resp.json().get("people", [])
+            if people:
+                name = people[0].get("fullName", "")
+                if name:
+                    # Cache it
+                    try:
+                        from data.cache.db import upsert_player
+                        upsert_player({"player_id": player_id, "player_name": name})
+                    except Exception:
+                        pass
+                    return name
+    except Exception:
+        pass
+
+    # 3. Last resort — return empty string (report template handles blank gracefully)
+    return ""

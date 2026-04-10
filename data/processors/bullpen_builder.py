@@ -48,8 +48,23 @@ def build_bullpen_profile(
 
     cache_key = f"bullpen_{team_id}_{game_date.isoformat()}"
     cached = get_cache(cache_key)
-    if cached is not None:
-        return cached
+    # Only use cache hit if it deserialized back as a dict (JSON-safe round-trip)
+    if isinstance(cached, dict):
+        try:
+            return BullpenProfile(
+                team_id=cached.get("team_id", team_id),
+                team_abbr=cached.get("team_abbr", team_abbr),
+                xfip=cached.get("xfip", 4.20),
+                high_lev_xfip=cached.get("high_lev_xfip", 4.00),
+                era=cached.get("era", 4.20),
+                ip_available=cached.get("ip_available", 4.0),
+                fatigue_flag=cached.get("fatigue_flag", False),
+                prior_game_innings=cached.get("prior_game_innings", 9),
+                pct_righties=cached.get("pct_righties", 0.60),
+                pct_lefties=cached.get("pct_lefties", 0.40),
+            )
+        except Exception:
+            pass
 
     # 1. Fetch bullpen aggregate stats
     xfip, high_lev_xfip, era, pct_righties = _fetch_bullpen_stats(team_id, game_date)
@@ -85,7 +100,8 @@ def build_bullpen_profile(
         pct_lefties=round(1.0 - pct_righties, 2),
     )
 
-    set_cache(cache_key, profile, ttl_hours=BULLPEN_CACHE_TTL_HOURS)
+    # Cache as a plain dict so JSON round-trip works correctly
+    set_cache(cache_key, profile.__dict__, ttl_hours=BULLPEN_CACHE_TTL_HOURS)
     return profile
 
 

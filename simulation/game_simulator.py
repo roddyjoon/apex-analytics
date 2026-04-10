@@ -273,7 +273,7 @@ def _bullpen_to_pitcher(bullpen: Optional[BullpenProfile]) -> PitcherProfile:
     Build a synthetic PitcherProfile from a BullpenProfile.
     Used when the starter is removed — the 'bullpen' is modeled as one aggregate arm.
     """
-    if bullpen is None:
+    if bullpen is None or not isinstance(bullpen, BullpenProfile):
         return _default_bullpen_pitcher()
 
     # Use high-leverage xFIP as the bullpen ERA (better relievers face key spots)
