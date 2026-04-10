@@ -32,10 +32,11 @@ reports/
 *.sqlite
 *.sqlite3
 
-# Cache
-cache/
+# Cache — runtime file cache dirs (NOT the data/cache Python module)
+/cache/
 *.pkl.tmp
 pybaseball_cache/
+/tmp/apex_file_cache/
 
 # macOS
 .DS_Store
