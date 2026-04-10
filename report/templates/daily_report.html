@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Analytics — {{ report_date }} MLB Report</title>
+  <style>
+    /* ── Reset & Base ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d0d1a;
+      --panel:       #1a1a2e;
+      --panel-light: #20203a;
+      --border:      #2a2a4a;
+      --accent-blue: #4a9eff;
+      --accent-red:  #ff6b6b;
+      --accent-gold: #ffd700;
+      --text:        #e0e0e0;
+      --text-muted:  #8888aa;
+      --text-dim:    #555577;
+      --green:       #4caf76;
+      --orange:      #ff9f43;
+      --radius:      6px;
+      --mono:        'Courier New', Courier, monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    a { color: var(--accent-blue); text-decoration: none; }
+
+    /* ── Header ────────────────────────────────────────────────── */
+    .report-header {
+      background: linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 100%);
+      border-bottom: 2px solid var(--accent-blue);
+      padding: 24px 32px 18px;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .report-brand {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .report-brand span {
+      color: var(--accent-gold);
+    }
+    .report-meta {
+      text-align: right;
+      color: var(--text-muted);
+      font-size: 11px;
+      line-height: 1.8;
+    }
+    .report-date {
+      font-size: 18px;
+      color: var(--text);
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .report-type-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .badge-morning  { background: #1a3a5a; color: var(--accent-blue); }
+    .badge-pregame  { background: #3a2a0a; color: var(--accent-gold); }
+    .badge-final    { background: #1a3a1a; color: var(--green); }
+
+    .header-stats {
+      display: flex;
+      gap: 28px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .header-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .header-stat .val {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+    .header-stat .lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Games container ────────────────────────────────────────── */
+    .games-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* ── Footer ────────────────────────────────────────────────── */
+    .report-footer {
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 28px 32px;
+      margin-top: 24px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .footer-section h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-blue);
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Performance table */
+    .perf-table { width: 100%; border-collapse: collapse; }
+    .perf-table td {
+      padding: 5px 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .perf-table td:first-child { color: var(--text); font-weight: 500; }
+    .perf-table td.good  { color: var(--green); }
+    .perf-table td.warn  { color: var(--orange); }
+    .perf-table td.alert { color: var(--accent-red); }
+
+    .methodology {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+    .methodology strong { color: var(--text-muted); }
+
+    .footer-disclaimer {
+      max-width: 1100px;
+      margin: 20px auto 0;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    /* ── Utility ────────────────────────────────────────────────── */
+    .text-good   { color: var(--green); }
+    .text-warn   { color: var(--orange); }
+    .text-alert  { color: var(--accent-red); }
+    .text-muted  { color: var(--text-muted); }
+    .text-gold   { color: var(--accent-gold); }
+    .monospace   { font-family: var(--mono); }
+
+    @media (max-width: 700px) {
+      .footer-grid { grid-template-columns: 1fr; }
+      .report-header { padding: 16px; }
+      .header-stats { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ HEADER -->
+<header class="report-header">
+  <div class="header-top">
+    <div>
+      <div class="report-brand">⚾ Apex <span>Analytics</span></div>
+      <div class="report-date">{{ report_date_long }}</div>
+    </div>
+    <div class="report-meta">
+      <span class="report-type-badge badge-{{ report_type }}">
+        {% if report_type == 'morning' %}☀ Morning Report (Projected Lineups)
+        {% elif report_type == 'pregame' %}⚡ Pre-Game Update (Confirmed Lineups)
+        {% else %}{{ report_type | title }}{% endif %}
+      </span><br>
+      Generated: {{ generated_at }}<br>
+      Model v{{ model_version }}<br>
+      Calibration: {{ calibration_status }}
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="header-stat">
+      <span class="val">{{ n_games }}</span>
+      <span class="lbl">Games Today</span>
+    </div>
+    <div class="header-stat">
+      <span class="val">{{ season_record }}</span>
+      <span class="lbl">Season Record</span>
+    </div>
+    <div class="header-stat">
+      <span class="val {% if brier_30d <= 0.22 %}text-good{% elif brier_30d <= 0.24 %}text-warn{% else %}text-alert{% endif %}">
+        {{ "%.3f"|format(brier_30d) }}
+      </span>
+      <span class="lbl">30-Day Brier</span>
+    </div>
+    <div class="header-stat">
+      <span class="val {% if accuracy_30d >= 0.570 %}text-good{% elif accuracy_30d >= 0.540 %}text-warn{% else %}text-alert{% endif %}">
+        {{ "%.1f"|format(accuracy_30d * 100) }}%
+      </span>
+      <span class="lbl">30-Day Accuracy</span>
+    </div>
+    <div class="header-stat">
+      <span class="val text-muted">{{ ensemble_phase }}</span>
+      <span class="lbl">Ensemble Phase</span>
+    </div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════ GAME CARDS -->
+<main class="games-container">
+  {% for game in games %}
+    {% include 'game_card.html' %}
+  {% endfor %}
+
+  {% if games | length == 0 %}
+  <div style="text-align:center; padding: 60px; color: var(--text-muted);">
+    <div style="font-size:32px; margin-bottom:12px;">⚾</div>
+    <div style="font-size:16px;">No games scheduled for {{ report_date }}.</div>
+    {% if postponements %}
+    <div style="margin-top:12px; color: var(--orange);">
+      Postponements: {{ postponements | join(', ') }}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════ FOOTER -->
+<footer class="report-footer">
+  <div class="footer-grid">
+
+    <div class="footer-section">
+      <h3>Model Performance (Rolling)</h3>
+      <table class="perf-table">
+        <tr>
+          <td>30-Day Brier Score</td>
+          <td class="{% if brier_30d <= 0.22 %}good{% elif brier_30d <= 0.24 %}warn{% else %}alert{% endif %} monospace">
+            {{ "%.4f"|format(brier_30d) }}
+          </td>
+          <td class="text-muted">Target: &lt; 0.240</td>
+        </tr>
+        <tr>
+          <td>30-Day Accuracy</td>
+          <td class="{% if accuracy_30d >= 0.570 %}good{% elif accuracy_30d >= 0.540 %}warn{% else %}alert{% endif %} monospace">
+            {{ "%.1f"|format(accuracy_30d * 100) }}%
+          </td>
+          <td class="text-muted">Vegas: ~58.2%</td>
+        </tr>
+        <tr>
+          <td>Season Record</td>
+          <td class="monospace">{{ season_record }}</td>
+          <td class="text-muted">{{ "%.1f"|format(season_win_pct * 100) if season_win_pct else "—" }}%</td>
+        </tr>
+        <tr>
+          <td>Calibration Method</td>
+          <td>{{ calibration_method }}</td>
+          <td class="text-muted">n={{ calibration_n_games }} games</td>
+        </tr>
+        <tr>
+          <td>Calibration Status</td>
+          <td class="{% if calibration_status == 'GOOD' %}good{% else %}warn{% endif %}">
+            {{ calibration_status }}
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>Ensemble Phase</td>
+          <td>{{ ensemble_phase }}</td>
+          <td class="text-muted">MC={{ "%.0f"|format(ensemble_weights.mc * 100) }}% Elo={{ "%.0f"|format(ensemble_weights.elo * 100) }}% RF={{ "%.0f"|format(ensemble_weights.rf * 100) }}% LR={{ "%.0f"|format(ensemble_weights.lr * 100) }}%</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="footer-section">
+      <h3>Methodology</h3>
+      <div class="methodology">
+        <strong>Win probabilities</strong> use a four-layer ensemble:<br>
+        <strong>Monte Carlo</strong> simulation (7,000 iterations, Statcast inputs, bottom-up PA model) ·
+        <strong>Team Elo ratings</strong> (dynamic, post-game updated) ·
+        <strong>Random Forest</strong> (15-feature non-linear model, 2023–2024 training) ·
+        <strong>Logistic Regression</strong> (12-feature interpretable baseline)<br><br>
+        Final output is calibrated via <strong>{% if calibration_method == 'isotonic' %}isotonic regression{% else %}Platt scaling{% endif %}</strong>
+        on {{ calibration_n_games }} historical games.
+        Confidence intervals reflect ensemble variance across all four layers.<br><br>
+        <strong>Data sources:</strong> Baseball Savant (Statcast), MLB Stats API, Open-Meteo.
+        All public, all free. 1-day Statcast delay applies.<br><br>
+        <strong>⚠ Educational tool only. Not financial advice. Just math.</strong>
+      </div>
+    </div>
+
+  </div>
+  <div class="footer-disclaimer">
+    Apex Analytics v{{ model_version }} · Generated {{ generated_at }} ·
+    Statcast data via Baseball Savant · Weather via Open-Meteo ·
+    Schedules &amp; lineups via MLB Stats API ·
+    This is an educational tool. Not for commercial use.
+  </div>
+</footer>
+
+</body>
+</html>

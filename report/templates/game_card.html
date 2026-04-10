@@ -1,0 +1,676 @@
+<!-- ═══════════════════════════════════════════════ GAME CARD: {{ game.away_abbr }} @ {{ game.home_abbr }} -->
+<article class="game-card" id="game-{{ game.game_pk }}">
+
+<style>
+  /* Scoped to game card — styles that aren't in the master template */
+  .game-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  /* Game header */
+  .game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #15152a 100%);
+    border-bottom: 2px solid var(--accent-blue);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .game-matchup {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .game-matchup .away { color: var(--accent-red); }
+  .game-matchup .home { color: var(--accent-blue); }
+  .game-matchup .sep  { color: var(--text-dim); margin: 0 6px; }
+  .game-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .game-info .game-time { font-size: 13px; color: var(--text); font-weight: 600; }
+
+  /* Lineup badges */
+  .badge-confirmed { color: var(--green);   background: #0d2a1a; padding: 2px 7px; border-radius: 3px; font-size: 9px; font-weight: 700; }
+  .badge-projected { color: var(--orange);  background: #2a1a0a; padding: 2px 7px; border-radius: 3px; font-size: 9px; font-weight: 700; }
+  .badge-mixed     { color: var(--accent-gold); background: #2a2a0a; padding: 2px 7px; border-radius: 3px; font-size: 9px; font-weight: 700; }
+  .badge-unknown   { color: var(--text-dim); background: #1a1a1a; padding: 2px 7px; border-radius: 3px; font-size: 9px; font-weight: 700; }
+
+  /* Card body sections */
+  .card-body { padding: 0; }
+  .card-section {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-section:last-child { border-bottom: none; }
+  .section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-blue);
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Win probability bars */
+  .winprob-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .winprob-label {
+    width: 52px;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .winprob-bar-bg {
+    flex: 1;
+    background: var(--panel-light);
+    border-radius: 3px;
+    height: 22px;
+    overflow: hidden;
+    position: relative;
+  }
+  .winprob-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    transition: width 0.3s;
+  }
+  .winprob-pct {
+    width: 44px;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .ci-band {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 4px;
+  }
+  .confidence-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  /* Charts */
+  .chart-img {
+    width: 100%;
+    max-width: 700px;
+    display: block;
+    border-radius: 4px;
+  }
+  .chart-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* Projected score */
+  .score-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+  .score-team { font-size: 11px; color: var(--text-muted); }
+  .score-val  { font-size: 28px; font-weight: 700; }
+  .score-sep  { font-size: 20px; color: var(--text-dim); }
+  .score-total { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 6px; }
+
+  /* Stats tables */
+  .stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .stats-table th {
+    text-align: right;
+    padding: 4px 6px;
+    color: var(--text-dim);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stats-table th:first-child { text-align: left; }
+  .stats-table td {
+    text-align: right;
+    padding: 5px 6px;
+    color: var(--text-muted);
+    border-bottom: 1px solid #16162a;
+  }
+  .stats-table td:first-child { text-align: left; color: var(--text); }
+  .stats-table tr:hover td { background: #16162a; }
+  .stats-table .highlight { color: var(--accent-gold); font-weight: 700; }
+  .stats-table .good      { color: var(--green); }
+  .stats-table .warn      { color: var(--orange); }
+
+  /* SP matchup side-by-side */
+  .pitcher-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .pitcher-panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .pitcher-throws { font-size: 10px; color: var(--text-dim); }
+
+  /* Two-column section */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .two-col-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  /* Bullpen */
+  .bullpen-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .bullpen-panel { }
+  .bullpen-name { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .bullpen-stat { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; }
+  .bullpen-stat .lbl { color: var(--text-muted); }
+  .bullpen-stat .val { font-family: var(--mono); }
+  .fatigue-flag {
+    margin-top: 8px;
+    padding: 4px 8px;
+    background: #2a1a0a;
+    color: var(--orange);
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  /* Lineup table */
+  .lineup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .lineup-team-name { font-size: 13px; font-weight: 700; }
+  .lineup-table { font-size: 10.5px; }
+  .lineup-table th { font-size: 9px; }
+  .projected-row td { color: var(--text-dim) !important; }
+  .projected-row td:first-child { color: var(--orange) !important; }
+  .low-conf-row td:first-child::after { content: " ⚠"; color: var(--orange); font-size: 8px; }
+
+  /* Weather */
+  .weather-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
+    font-size: 12px;
+  }
+  .weather-lbl { color: var(--text-muted); font-weight: 600; }
+  .weather-val { font-family: var(--mono); }
+  .weather-net {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+  .weather-net.hitter   { background: #1a2a0a; color: var(--green); }
+  .weather-net.pitcher  { background: #2a0a0a; color: var(--accent-red); }
+  .weather-net.neutral  { background: #1a1a2a; color: var(--text-muted); }
+  .weather-net.dome     { background: #1a1a2a; color: var(--text-dim); }
+
+  /* Key factors */
+  .factors-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .factors-list li { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .factors-list li span { color: var(--accent-gold); }
+
+  /* Ensemble breakdown */
+  .ensemble-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .ensemble-layer {
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    text-align: center;
+  }
+  .ensemble-layer .layer-name { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 4px; }
+  .ensemble-layer .layer-home { font-size: 18px; font-weight: 700; color: var(--accent-blue); }
+  .ensemble-layer .layer-away { font-size: 11px; color: var(--accent-red); margin-top: 2px; }
+  .ensemble-layer .layer-weight { font-size: 9px; color: var(--text-dim); margin-top: 4px; }
+  .ensemble-final {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--panel-light);
+    border-radius: var(--radius);
+    border: 1px solid var(--accent-blue);
+    font-size: 12px;
+  }
+  .ensemble-final .lbl { color: var(--text-muted); }
+  .ensemble-final .val { font-weight: 700; font-family: var(--mono); font-size: 14px; }
+
+  @media (max-width: 600px) {
+    .pitcher-grid  { grid-template-columns: 1fr; }
+    .two-col       { grid-template-columns: 1fr; }
+    .bullpen-grid  { grid-template-columns: 1fr; }
+    .ensemble-grid { grid-template-columns: 1fr 1fr; }
+    .game-header   { padding: 12px 14px; }
+    .card-section  { padding: 12px 14px; }
+  }
+</style>
+
+<!-- Game Header -->
+<header class="game-header">
+  <div>
+    <div class="game-matchup">
+      <span class="away">{{ game.away_abbr }}</span>
+      <span class="sep">@</span>
+      <span class="home">{{ game.home_abbr }}</span>
+    </div>
+    <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">
+      {{ game.away_full }} @ {{ game.home_full }}
+    </div>
+  </div>
+  <div class="game-info">
+    <span class="game-time">{{ game.game_time_et }}</span>
+    <span>{{ game.stadium_name }}</span>
+    <span>
+      {% if game.home_lineup_confidence == 'CONFIRMED' %}
+        <span class="badge-confirmed">✓ CONFIRMED</span>
+      {% elif game.home_lineup_confidence == 'PROJECTED' %}
+        <span class="badge-projected">⚠ PROJECTED</span>
+      {% else %}
+        <span class="badge-mixed">~ MIXED</span>
+      {% endif %}
+      {% if game.is_doubleheader %}
+        <span class="badge-projected" style="margin-left:4px;">DH Game {{ game.doubleheader_game }}</span>
+      {% endif %}
+    </span>
+  </div>
+</header>
+
+<div class="card-body">
+
+  <!-- ── Win Probability ─────────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Win Probability — 7,000 Simulation Ensemble + Calibration</div>
+
+    <!-- Away team bar -->
+    <div class="winprob-row">
+      <div class="winprob-label" style="color:var(--accent-red);">{{ game.away_abbr }}</div>
+      <div class="winprob-bar-bg">
+        <div class="winprob-bar-fill" style="width:{{ (game.away_win_pct * 100)|round|int }}%; background:var(--accent-red);">
+          {{ game.away_abbr }}
+        </div>
+      </div>
+      <div class="winprob-pct" style="color:var(--accent-red);">{{ "%.1f"|format(game.away_win_pct * 100) }}%</div>
+    </div>
+
+    <!-- Home team bar -->
+    <div class="winprob-row">
+      <div class="winprob-label" style="color:var(--accent-blue);">{{ game.home_abbr }}</div>
+      <div class="winprob-bar-bg">
+        <div class="winprob-bar-fill" style="width:{{ (game.home_win_pct * 100)|round|int }}%; background:var(--accent-blue);">
+          {{ game.home_abbr }}
+        </div>
+      </div>
+      <div class="winprob-pct" style="color:var(--accent-blue);">{{ "%.1f"|format(game.home_win_pct * 100) }}%</div>
+    </div>
+
+    <div class="ci-band">
+      95% CI: {{ "%.1f"|format(game.ci_lower * 100) }}% – {{ "%.1f"|format(game.ci_upper * 100) }}% ({{ game.home_abbr }} home win)
+      &nbsp;|&nbsp;
+      Ensemble std-dev: ±{{ "%.1f"|format(game.ensemble_std * 100) }}%
+    </div>
+
+    {% if game.win_prob_chart_b64 %}
+    <div style="margin-top:10px;">
+      <img class="chart-img" src="data:image/png;base64,{{ game.win_prob_chart_b64 }}" alt="Win probability chart">
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Projected Score ─────────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Projected Score</div>
+    <div class="score-grid">
+      <div>
+        <div class="score-team">{{ game.away_abbr }} (Away)</div>
+        <div class="score-val" style="color:var(--accent-red);">{{ "%.1f"|format(game.projected_away_runs) }}</div>
+      </div>
+      <div class="score-sep">—</div>
+      <div>
+        <div class="score-team">{{ game.home_abbr }} (Home)</div>
+        <div class="score-val" style="color:var(--accent-blue);">{{ "%.1f"|format(game.projected_home_runs) }}</div>
+      </div>
+    </div>
+    <div class="score-total">
+      Total: <strong>{{ "%.1f"|format(game.projected_total) }}</strong> projected runs
+      &nbsp;|&nbsp; Extra innings: {{ "%.1f"|format(game.extra_innings_pct * 100) }}% probability
+      &nbsp;|&nbsp; Avg innings: {{ "%.1f"|format(game.avg_innings) }}
+    </div>
+  </div>
+
+  <!-- ── Run Distribution Chart ──────────────────────────────────── -->
+  {% if game.run_dist_chart_b64 %}
+  <div class="card-section">
+    <div class="section-title">Run Distribution (7,000 Simulations)</div>
+    <img class="chart-img" src="data:image/png;base64,{{ game.run_dist_chart_b64 }}" alt="Run distribution">
+    <div style="margin-top:6px; font-size:10px; color:var(--text-dim); font-family:var(--mono);">
+      {% set rd = game.run_distribution %}
+      P5: {{ rd[5] }} &nbsp;·&nbsp; P25: {{ rd[25] }} &nbsp;·&nbsp; Median: {{ rd[50] }} &nbsp;·&nbsp; P75: {{ rd[75] }} &nbsp;·&nbsp; P95: {{ rd[95] }}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Pitcher Matchup ─────────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Pitcher Matchup</div>
+    <div class="pitcher-grid">
+
+      <!-- Away SP -->
+      <div>
+        <div class="pitcher-panel-title">
+          <span style="color:var(--accent-red);">{{ game.away_abbr }}</span>
+          {% if game.away_starter %}
+            {{ game.away_starter.player_name }}
+            <span class="pitcher-throws">({{ game.away_starter.throws }}HP)</span>
+            <span class="badge-{{ game.away_starter_confidence | lower }}">{{ game.away_starter_confidence }}</span>
+          {% else %}
+            <span style="color:var(--text-dim);">TBD</span>
+          {% endif %}
+        </div>
+        {% if game.away_starter %}
+        <table class="stats-table">
+          <tr><th>Metric</th><th>Season</th><th>Last 21d</th></tr>
+          <tr><td>TT ERA (blend)</td>  <td class="highlight">{{ "%.2f"|format(game.away_starter.true_talent_era) }}</td> <td class="text-muted">—</td></tr>
+          <tr><td>xERA</td>            <td>{{ "%.2f"|format(game.away_starter.xera) }}</td>              <td class="text-muted">{{ "%.2f"|format(game.away_starter.exp_decay_xera) if game.away_starter.exp_decay_xera else "—" }}</td></tr>
+          <tr><td>SIERA (true)</td>    <td>{{ "%.2f"|format(game.away_starter.siera) }}</td>             <td class="text-muted">—</td></tr>
+          <tr><td>FIP</td>             <td>{{ "%.2f"|format(game.away_starter.fip) }}</td>               <td class="text-muted">—</td></tr>
+          <tr><td>SwStr%</td>          <td>{{ "%.1f"|format(game.away_starter.swstr_pct * 100) }}%</td>  <td class="text-muted">—</td></tr>
+          <tr><td>CSW%</td>            <td>{{ "%.1f"|format(game.away_starter.csw_pct * 100) }}%</td>    <td class="text-muted">—</td></tr>
+          <tr><td>K% / BB%</td>        <td>{{ "%.1f"|format(game.away_starter.k_pct * 100) }}% / {{ "%.1f"|format(game.away_starter.bb_pct * 100) }}%</td><td class="text-muted">—</td></tr>
+          <tr><td>Barrel%</td>         <td>{{ "%.1f"|format(game.away_starter.barrel_pct_allowed * 100) if game.away_starter.barrel_pct_allowed else "—" }}%</td><td class="text-muted">—</td></tr>
+          <tr><td>xBA allowed</td>     <td>{{ "%.3f"|format(game.away_starter.xba_allowed) if game.away_starter.xba_allowed else "—" }}</td><td class="text-muted">—</td></tr>
+          <tr><td>Days Rest</td>       <td>{{ game.away_starter.days_rest }}</td>                         <td class="text-muted">—</td></tr>
+          <tr><td>Sample (BF)</td>     <td>{{ game.away_starter.bf }}</td>                                <td class="text-muted">—</td></tr>
+        </table>
+        {% else %}
+        <div style="color:var(--text-dim); font-size:11px; padding:8px 0;">Starting pitcher TBD</div>
+        {% endif %}
+      </div>
+
+      <!-- Home SP -->
+      <div>
+        <div class="pitcher-panel-title">
+          <span style="color:var(--accent-blue);">{{ game.home_abbr }}</span>
+          {% if game.home_starter %}
+            {{ game.home_starter.player_name }}
+            <span class="pitcher-throws">({{ game.home_starter.throws }}HP)</span>
+            <span class="badge-{{ game.home_starter_confidence | lower }}">{{ game.home_starter_confidence }}</span>
+          {% else %}
+            <span style="color:var(--text-dim);">TBD</span>
+          {% endif %}
+        </div>
+        {% if game.home_starter %}
+        <table class="stats-table">
+          <tr><th>Metric</th><th>Season</th><th>Last 21d</th></tr>
+          <tr><td>TT ERA (blend)</td>  <td class="highlight">{{ "%.2f"|format(game.home_starter.true_talent_era) }}</td> <td class="text-muted">—</td></tr>
+          <tr><td>xERA</td>            <td>{{ "%.2f"|format(game.home_starter.xera) }}</td>              <td class="text-muted">{{ "%.2f"|format(game.home_starter.exp_decay_xera) if game.home_starter.exp_decay_xera else "—" }}</td></tr>
+          <tr><td>SIERA (true)</td>    <td>{{ "%.2f"|format(game.home_starter.siera) }}</td>             <td class="text-muted">—</td></tr>
+          <tr><td>FIP</td>             <td>{{ "%.2f"|format(game.home_starter.fip) }}</td>               <td class="text-muted">—</td></tr>
+          <tr><td>SwStr%</td>          <td>{{ "%.1f"|format(game.home_starter.swstr_pct * 100) }}%</td>  <td class="text-muted">—</td></tr>
+          <tr><td>CSW%</td>            <td>{{ "%.1f"|format(game.home_starter.csw_pct * 100) }}%</td>    <td class="text-muted">—</td></tr>
+          <tr><td>K% / BB%</td>        <td>{{ "%.1f"|format(game.home_starter.k_pct * 100) }}% / {{ "%.1f"|format(game.home_starter.bb_pct * 100) }}%</td><td class="text-muted">—</td></tr>
+          <tr><td>Barrel%</td>         <td>{{ "%.1f"|format(game.home_starter.barrel_pct_allowed * 100) if game.home_starter.barrel_pct_allowed else "—" }}%</td><td class="text-muted">—</td></tr>
+          <tr><td>xBA allowed</td>     <td>{{ "%.3f"|format(game.home_starter.xba_allowed) if game.home_starter.xba_allowed else "—" }}</td><td class="text-muted">—</td></tr>
+          <tr><td>Days Rest</td>       <td>{{ game.home_starter.days_rest }}</td>                         <td class="text-muted">—</td></tr>
+          <tr><td>Sample (BF)</td>     <td>{{ game.home_starter.bf }}</td>                                <td class="text-muted">—</td></tr>
+        </table>
+        {% else %}
+        <div style="color:var(--text-dim); font-size:11px; padding:8px 0;">Starting pitcher TBD</div>
+        {% endif %}
+      </div>
+
+    </div><!-- /.pitcher-grid -->
+  </div>
+
+  <!-- ── Bullpen ──────────────────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Bullpen</div>
+    <div class="bullpen-grid">
+      <div class="bullpen-panel">
+        <div class="bullpen-name" style="color:var(--accent-red);">{{ game.away_abbr }} Bullpen</div>
+        {% if game.away_bullpen %}
+        <div class="bullpen-stat"><span class="lbl">Season xFIP</span>       <span class="val">{{ "%.2f"|format(game.away_bullpen.xfip) }}</span></div>
+        <div class="bullpen-stat"><span class="lbl">High-Lev xFIP</span>    <span class="val">{{ "%.2f"|format(game.away_bullpen.high_lev_xfip) }}</span></div>
+        <div class="bullpen-stat"><span class="lbl">Est. IP Available</span> <span class="val">~{{ "%.1f"|format(game.away_bullpen.ip_available) }}</span></div>
+        {% if game.away_bullpen.fatigue_flag %}
+        <div class="fatigue-flag">⚠ FATIGUE FLAG — Heavy usage prior night</div>
+        {% endif %}
+        {% else %}
+        <div style="color:var(--text-dim); font-size:11px;">Bullpen data unavailable</div>
+        {% endif %}
+      </div>
+      <div class="bullpen-panel">
+        <div class="bullpen-name" style="color:var(--accent-blue);">{{ game.home_abbr }} Bullpen</div>
+        {% if game.home_bullpen %}
+        <div class="bullpen-stat"><span class="lbl">Season xFIP</span>       <span class="val">{{ "%.2f"|format(game.home_bullpen.xfip) }}</span></div>
+        <div class="bullpen-stat"><span class="lbl">High-Lev xFIP</span>    <span class="val">{{ "%.2f"|format(game.home_bullpen.high_lev_xfip) }}</span></div>
+        <div class="bullpen-stat"><span class="lbl">Est. IP Available</span> <span class="val">~{{ "%.1f"|format(game.home_bullpen.ip_available) }}</span></div>
+        {% if game.home_bullpen.fatigue_flag %}
+        <div class="fatigue-flag">⚠ FATIGUE FLAG — Heavy usage prior night</div>
+        {% endif %}
+        {% else %}
+        <div style="color:var(--text-dim); font-size:11px;">Bullpen data unavailable</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Lineup Tables ───────────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Lineups &amp; Hitter Stats</div>
+    <div class="two-col">
+
+      <!-- Away lineup -->
+      <div>
+        <div class="lineup-header">
+          <span class="lineup-team-name" style="color:var(--accent-red);">{{ game.away_abbr }} (Away)</span>
+          {% if game.away_lineup_confidence == 'CONFIRMED' %}
+            <span class="badge-confirmed">✓ CONFIRMED</span>
+          {% elif game.away_lineup_confidence == 'PROJECTED' %}
+            <span class="badge-projected">⚠ PROJECTED</span>
+          {% else %}
+            <span class="badge-mixed">~ MIXED</span>
+          {% endif %}
+        </div>
+        <table class="stats-table lineup-table">
+          <tr>
+            <th style="text-align:left;">#&nbsp;Name</th>
+            <th>Pos</th><th>xwOBA</th><th>xBA</th>
+            <th>Brl%</th><th>HH%</th><th>Speed</th><th>PA</th>
+          </tr>
+          {% for batter in game.away_lineup %}
+          <tr class="{{ 'projected-row' if batter.is_projected else '' }} {{ 'low-conf-row' if batter.confidence == 'LOW' else '' }}">
+            <td>{{ batter.batting_order }}&nbsp;{{ batter.player_name }}</td>
+            <td>{{ batter.position }}</td>
+            <td>{{ "%.3f"|format(batter.xwoba) }}</td>
+            <td>{{ "%.3f"|format(batter.xba) if batter.xba else "—" }}</td>
+            <td>{{ "%.1f"|format(batter.barrel_pct * 100) if batter.barrel_pct else "—" }}%</td>
+            <td>{{ "%.1f"|format(batter.hard_hit_pct * 100) if batter.hard_hit_pct else "—" }}%</td>
+            <td>{{ "%.1f"|format(batter.sprint_speed) if batter.sprint_speed else "—" }}</td>
+            <td>{{ batter.pa }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" style="color:var(--text-dim); padding:8px 0;">Lineup not yet available</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+
+      <!-- Home lineup -->
+      <div>
+        <div class="lineup-header">
+          <span class="lineup-team-name" style="color:var(--accent-blue);">{{ game.home_abbr }} (Home)</span>
+          {% if game.home_lineup_confidence == 'CONFIRMED' %}
+            <span class="badge-confirmed">✓ CONFIRMED</span>
+          {% elif game.home_lineup_confidence == 'PROJECTED' %}
+            <span class="badge-projected">⚠ PROJECTED</span>
+          {% else %}
+            <span class="badge-mixed">~ MIXED</span>
+          {% endif %}
+        </div>
+        <table class="stats-table lineup-table">
+          <tr>
+            <th style="text-align:left;">#&nbsp;Name</th>
+            <th>Pos</th><th>xwOBA</th><th>xBA</th>
+            <th>Brl%</th><th>HH%</th><th>Speed</th><th>PA</th>
+          </tr>
+          {% for batter in game.home_lineup %}
+          <tr class="{{ 'projected-row' if batter.is_projected else '' }} {{ 'low-conf-row' if batter.confidence == 'LOW' else '' }}">
+            <td>{{ batter.batting_order }}&nbsp;{{ batter.player_name }}</td>
+            <td>{{ batter.position }}</td>
+            <td>{{ "%.3f"|format(batter.xwoba) }}</td>
+            <td>{{ "%.3f"|format(batter.xba) if batter.xba else "—" }}</td>
+            <td>{{ "%.1f"|format(batter.barrel_pct * 100) if batter.barrel_pct else "—" }}%</td>
+            <td>{{ "%.1f"|format(batter.hard_hit_pct * 100) if batter.hard_hit_pct else "—" }}%</td>
+            <td>{{ "%.1f"|format(batter.sprint_speed) if batter.sprint_speed else "—" }}</td>
+            <td>{{ batter.pa }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" style="color:var(--text-dim); padding:8px 0;">Lineup not yet available</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+
+    </div><!-- /.two-col -->
+  </div>
+
+  <!-- ── Weather ─────────────────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Weather Impact (Quantified)</div>
+    <div class="weather-grid">
+      <span class="weather-lbl">Temp:</span>
+      <span class="weather-val">{{ game.weather.temp_str }}</span>
+      <span class="weather-lbl">Wind:</span>
+      <span class="weather-val">{{ game.weather.wind_str }}</span>
+      <span class="weather-lbl">Dome:</span>
+      <span class="weather-val">{{ "Yes — weather neutral" if game.weather.dome_flag else "No" }}</span>
+    </div>
+    <div class="weather-net {{ game.weather.conditions | lower }}">
+      NET WEATHER EFFECT: {{ game.weather.net_adj_str }}
+    </div>
+  </div>
+
+  <!-- ── Park Factor ─────────────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Park Factor</div>
+    <div class="weather-grid">
+      <span class="weather-lbl">Runs:</span>
+      <span class="weather-val monospace">
+        {{ "%.3f"|format(game.park_factor_runs) }}
+        {% if game.park_factor_runs > 1.05 %} <span style="color:var(--orange)">(hitter's park)</span>
+        {% elif game.park_factor_runs < 0.95 %} <span style="color:var(--accent-blue)">(pitcher's park)</span>
+        {% else %} <span style="color:var(--text-dim)">(near-neutral)</span>{% endif %}
+      </span>
+      <span class="weather-lbl">HR:</span>
+      <span class="weather-val monospace">{{ "%.3f"|format(game.park_factor_hr) }}</span>
+      <span class="weather-lbl">Stadium:</span>
+      <span class="weather-val">{{ game.stadium_name }}</span>
+    </div>
+  </div>
+
+  <!-- ── Key Factors ─────────────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Key Factors — Why Model Leans {{ game.home_abbr if game.home_win_pct >= 0.5 else game.away_abbr }} {{ "%.0f"|format([game.home_win_pct, game.away_win_pct]|max * 100) }}%</div>
+    <ul class="factors-list">
+      {% for factor in game.key_factors %}
+      <li>{{ factor }}</li>
+      {% else %}
+      <li style="color:var(--text-dim);">Factor analysis unavailable</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- ── Ensemble Breakdown ──────────────────────────────────────── -->
+  <div class="card-section">
+    <div class="section-title">Ensemble Breakdown (Transparency)</div>
+    <div class="ensemble-grid">
+      <div class="ensemble-layer">
+        <div class="layer-name">Monte Carlo</div>
+        <div class="layer-home">{{ "%.1f"|format(game.ensemble.mc_prob * 100) }}%</div>
+        <div class="layer-away" style="color:var(--accent-red);">{{ "%.1f"|format((1 - game.ensemble.mc_prob) * 100) }}%</div>
+        <div class="layer-weight">Weight: {{ "%.0f"|format(game.ensemble.weights.mc * 100) }}%</div>
+      </div>
+      <div class="ensemble-layer">
+        <div class="layer-name">Random Forest</div>
+        <div class="layer-home">{{ "%.1f"|format(game.ensemble.rf_prob * 100) }}%</div>
+        <div class="layer-away" style="color:var(--accent-red);">{{ "%.1f"|format((1 - game.ensemble.rf_prob) * 100) }}%</div>
+        <div class="layer-weight">Weight: {{ "%.0f"|format(game.ensemble.weights.rf * 100) }}%</div>
+      </div>
+      <div class="ensemble-layer">
+        <div class="layer-name">Logistic Reg.</div>
+        <div class="layer-home">{{ "%.1f"|format(game.ensemble.lr_prob * 100) }}%</div>
+        <div class="layer-away" style="color:var(--accent-red);">{{ "%.1f"|format((1 - game.ensemble.lr_prob) * 100) }}%</div>
+        <div class="layer-weight">Weight: {{ "%.0f"|format(game.ensemble.weights.lr * 100) }}%</div>
+      </div>
+      <div class="ensemble-layer">
+        <div class="layer-name">Elo Rating</div>
+        <div class="layer-home">{{ "%.1f"|format(game.ensemble.elo_prob * 100) }}%</div>
+        <div class="layer-away" style="color:var(--accent-red);">{{ "%.1f"|format((1 - game.ensemble.elo_prob) * 100) }}%</div>
+        <div class="layer-weight">Weight: {{ "%.0f"|format(game.ensemble.weights.elo * 100) }}%</div>
+      </div>
+    </div>
+    <div class="ensemble-final">
+      <span><span class="lbl">Pre-calibration:</span> <span class="val">{{ "%.1f"|format(game.ensemble.raw_ensemble * 100) }}%</span></span>
+      <span style="color:var(--text-dim);">→</span>
+      <span><span class="lbl">Calibrated:</span> <span class="val" style="color:var(--accent-gold);">{{ "%.1f"|format(game.ensemble.calibrated_prob * 100) }}%</span> home win</span>
+      <span><span class="lbl">Phase:</span> <span class="val" style="font-size:10px; color:var(--text-muted);">{{ game.ensemble.phase_label }}</span></span>
+    </div>
+  </div>
+
+</div><!-- /.card-body -->
+</article>

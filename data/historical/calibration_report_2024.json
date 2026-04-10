@@ -1,0 +1,110 @@
+{
+  "year": 2024,
+  "n_games": 2469,
+  "home_win_rate": 0.5136,
+  "brier_score": 0.2462,
+  "log_loss": 0.6856,
+  "accuracy": 0.5565,
+  "resolution": 0.0013,
+  "calibration_curve": {
+    "bins": [
+      {
+        "low": 0.0,
+        "high": 0.1,
+        "center": 0.05,
+        "predicted": 0.05,
+        "actual": null,
+        "count": 0
+      },
+      {
+        "low": 0.1,
+        "high": 0.2,
+        "center": 0.15,
+        "predicted": 0.15,
+        "actual": null,
+        "count": 0
+      },
+      {
+        "low": 0.2,
+        "high": 0.3,
+        "center": 0.25,
+        "predicted": 0.25,
+        "actual": null,
+        "count": 0
+      },
+      {
+        "low": 0.3,
+        "high": 0.4,
+        "center": 0.35,
+        "predicted": 0.35,
+        "actual": null,
+        "count": 0
+      },
+      {
+        "low": 0.4,
+        "high": 0.5,
+        "center": 0.45,
+        "predicted": 0.4822,
+        "actual": 0.4174,
+        "count": 642
+      },
+      {
+        "low": 0.5,
+        "high": 0.6,
+        "center": 0.55,
+        "predicted": 0.5425,
+        "actual": 0.5473,
+        "count": 1827
+      },
+      {
+        "low": 0.6,
+        "high": 0.7,
+        "center": 0.65,
+        "predicted": 0.65,
+        "actual": null,
+        "count": 0
+      },
+      {
+        "low": 0.7,
+        "high": 0.8,
+        "center": 0.75,
+        "predicted": 0.75,
+        "actual": null,
+        "count": 0
+      },
+      {
+        "low": 0.8,
+        "high": 0.9,
+        "center": 0.85,
+        "predicted": 0.85,
+        "actual": null,
+        "count": 0
+      },
+      {
+        "low": 0.9,
+        "high": 1.0,
+        "center": 0.95,
+        "predicted": 0.95,
+        "actual": null,
+        "count": 0
+      }
+    ],
+    "max_error": 0.0648,
+    "mean_error": 0.0348,
+    "n_bins": 10,
+    "n_populated": 2,
+    "passes": false,
+    "target": 0.05
+  },
+  "layer_comparison": {},
+  "targets": {
+    "brier_target": 0.24,
+    "accuracy_target": 0.55,
+    "cal_max_error": 0.05
+  },
+  "pass_fail": {
+    "brier": false,
+    "accuracy": true,
+    "calibration": false
+  }
+}

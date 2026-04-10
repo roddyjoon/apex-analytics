@@ -1,0 +1,124 @@
+{
+  "generated_at": "2026-04-09T20:16:00.438710",
+  "training_year": 2023,
+  "test_year": 2024,
+  "random_forest": {
+    "accuracy": 0.5638,
+    "brier_score": 0.2438,
+    "log_loss": 0.6808,
+    "auc_roc": 0.5948,
+    "n_test": 2469,
+    "home_win_rate_test": 0.5136,
+    "best_params": {
+      "max_depth": 6,
+      "max_features": "sqrt",
+      "min_samples_leaf": 40,
+      "n_estimators": 400
+    },
+    "cv_brier_score": 0.2411,
+    "feature_importances": {
+      "away_elo": 0.115302,
+      "away_bullpen_xfip": 0.094098,
+      "away_starter_siera": 0.093841,
+      "away_starter_decay_xera": 0.088144,
+      "home_starter_decay_xera": 0.083132,
+      "home_elo": 0.082976,
+      "home_bullpen_xfip": 0.082313,
+      "away_team_xwoba": 0.080539,
+      "home_starter_siera": 0.072885,
+      "home_team_xwoba": 0.069186,
+      "home_decay_win_pct": 0.047881,
+      "away_decay_win_pct": 0.040142,
+      "park_factor_hr": 0.026549,
+      "park_factor_runs": 0.023013,
+      "weather_run_adj": 0.0
+    },
+    "calibration": {
+      "bin_centers": [
+        0.35,
+        0.45,
+        0.55,
+        0.65,
+        0.75
+      ],
+      "actual_rates": [
+        0.3579,
+        0.4594,
+        0.561,
+        0.6957,
+        0.6279
+      ],
+      "counts": [
+        190,
+        862,
+        1328,
+        46,
+        43
+      ],
+      "max_error": 0.1221,
+      "target_max_err": 0.05,
+      "passes": false
+    }
+  },
+  "logistic_regression": {
+    "accuracy": 0.5877,
+    "brier_score": 0.2405,
+    "log_loss": 0.6739,
+    "auc_roc": 0.6137,
+    "n_test": 2469,
+    "home_win_rate_test": 0.5136,
+    "best_C": 0.01,
+    "cv_brier_score": 0.2401,
+    "coefficients": {
+      "away_team_xwoba": -0.148083,
+      "home_team_xwoba": 0.125995,
+      "away_bullpen_xfip": 0.066542,
+      "away_starter_era": 0.066542,
+      "away_starter_decay_xera": 0.066542,
+      "home_starter_decay_xera": -0.062443,
+      "home_starter_era": -0.062443,
+      "home_bullpen_xfip": -0.062443,
+      "park_factor_runs": 0.018926,
+      "home_decay_win_pct": 0.016878,
+      "away_decay_win_pct": -0.001292,
+      "weather_run_adj": 0.0
+    },
+    "calibration": {
+      "bin_centers": [
+        0.25,
+        0.35,
+        0.45,
+        0.55,
+        0.65,
+        0.75
+      ],
+      "actual_rates": [
+        0.25,
+        0.3986,
+        0.4334,
+        0.5791,
+        0.6519,
+        0.7619
+      ],
+      "counts": [
+        8,
+        276,
+        923,
+        948,
+        293,
+        21
+      ],
+      "max_error": 0.0486,
+      "target_max_err": 0.05,
+      "passes": true
+    }
+  },
+  "comparison": {
+    "rf_accuracy": 0.5638,
+    "lr_accuracy": 0.5877,
+    "rf_brier": 0.2438,
+    "lr_brier": 0.2405,
+    "winner_accuracy": "LogisticRegression",
+    "winner_brier": "LogisticRegression"
+  }
+}
