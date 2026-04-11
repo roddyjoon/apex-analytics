@@ -150,8 +150,8 @@ def run_pregame_job(
     if not dry_run and result["updated_games"] > 0:
         _save_updated_results(games_data, game_date)
 
-    # ── Notifications (only if lineups actually updated) ───────────
-    if not dry_run and result["updated_games"] > 0 and result["report_path"]:
+    # ── Notifications (send whenever we have games to report on) ───
+    if not dry_run and games_data and result["report_path"]:
         if send_email:
             _send_pregame_email(result["report_path"], game_date,
                                 result["updated_games"], games_data)
@@ -247,10 +247,18 @@ def _lineups_changed(game_pk: int, game_date: date) -> bool:
 def _load_morning_result(game_pk: int, game_date: date) -> Optional[dict]:
     """
     Load the morning simulation result from DB for a game that doesn't need re-simulation.
+    Reconstructs a games_data-compatible dict using SimpleNamespace proxies so the
+    email builder and report generator can render it without a full pipeline re-run.
     Returns None if not found.
     """
+    import json
+    from types import SimpleNamespace
+    from datetime import datetime, timezone, timedelta
+
     try:
-        from data.cache.db import get_session, SimulationResult
+        from data.cache.db import get_session, SimulationResult, Game
+        from sqlalchemy import text
+
         with get_session() as session:
             row = session.query(SimulationResult).filter(
                 SimulationResult.game_pk == game_pk,
@@ -258,13 +266,109 @@ def _load_morning_result(game_pk: int, game_date: date) -> Optional[dict]:
                 SimulationResult.report_type == "morning",
             ).first()
 
-        if not row:
-            return None
+            if not row:
+                logger.debug("  game_pk=%d: no morning result in DB", game_pk)
+                return None
 
-        # Reconstruct a minimal game_data dict for report generation
-        # (we don't have the full GameContext, so we use a placeholder)
-        logger.debug("  game_pk=%d: loaded morning result from DB", game_pk)
-        return None  # Report generator will handle missing games gracefully
+            # Load game metadata
+            gr = session.query(Game).filter(Game.game_pk == game_pk).first()
+
+            # Load lineup_cache for this game
+            lc_rows = session.execute(
+                text("SELECT team_abbr, lineup_json, is_confirmed "
+                     "FROM lineup_cache WHERE game_pk=:pk AND report_type='morning'"),
+                {"pk": game_pk},
+            ).fetchall()
+
+            # Load player stats for xwOBA lookup
+            ps_rows = session.execute(
+                text("SELECT player_id, stats_json FROM player_stats WHERE season=:yr"),
+                {"yr": game_date.year},
+            ).fetchall()
+
+        # Build player stats lookup
+        player_stats = {}
+        for ps in ps_rows:
+            try:
+                player_stats[ps[0]] = json.loads(ps[1]) if ps[1] else {}
+            except Exception:
+                pass
+
+        # Build lineup proxies
+        def _build_lineup(team_abbr):
+            for lc in lc_rows:
+                if lc[0] == team_abbr:
+                    slots = json.loads(lc[1]) if lc[1] else []
+                    proxies = []
+                    for slot in slots:
+                        pid  = slot.get("player_id")
+                        ps   = player_stats.get(pid, {}) if pid else {}
+                        xwoba = ps.get("xwoba") or ps.get("estimated_woba_using_speedangle")
+                        obp   = ps.get("obp") or ps.get("on_base_percent")
+                        slg   = ps.get("slg") or ps.get("slg_percent")
+                        proxies.append(SimpleNamespace(
+                            batting_order = slot.get("batting_order", 9),
+                            player_name   = slot.get("player_name", ""),
+                            position      = slot.get("position", ""),
+                            player_id     = pid,
+                            xwoba         = xwoba,
+                            obp           = obp,
+                            slg           = slg,
+                            is_confirmed  = slot.get("is_confirmed", False),
+                        ))
+                    return proxies
+            return []
+
+        home_abbr = gr.home_team_abbr if gr else "HOME"
+        away_abbr = gr.away_team_abbr if gr else "AWAY"
+
+        # Parse game time → ET label
+        game_time_et = "TBD"
+        if gr and gr.game_time_utc:
+            try:
+                dt = datetime.fromisoformat(str(gr.game_time_utc).replace("Z", "+00:00"))
+                et = dt.astimezone(timezone(timedelta(hours=-4)))  # EDT
+                game_time_et = et.strftime("%-I:%M %p")
+            except Exception:
+                pass
+
+        ctx = SimpleNamespace(
+            game_pk        = game_pk,
+            home_team_abbr = home_abbr,
+            away_team_abbr = away_abbr,
+            home_starter   = None,
+            away_starter   = None,
+            home_lineup    = _build_lineup(home_abbr),
+            away_lineup    = _build_lineup(away_abbr),
+            park           = None,
+        )
+
+        cal_prob = row.calibrated_prob or 0.53
+        result = {
+            "game_context": ctx,
+            "mc_result": {
+                "home_win_pct":        row.home_win_pct,
+                "projected_home_runs": row.projected_home_runs,
+                "projected_away_runs": row.projected_away_runs,
+                "projected_total":     row.projected_total,
+                "n_iterations":        row.n_iterations or 7000,
+            },
+            "ensemble_result": {
+                "mc_prob":         row.mc_prob,
+                "elo_prob":        row.elo_prob,
+                "rf_prob":         row.rf_prob,
+                "lr_prob":         row.lr_prob,
+                "raw_ensemble":    cal_prob,
+                "calibrated_prob": cal_prob,
+                "confidence_band": (max(0.35, cal_prob - 0.07), min(0.65, cal_prob + 0.07)),
+            },
+            "away_full":    away_abbr,
+            "home_full":    home_abbr,
+            "game_time_et": game_time_et,
+            "stadium_name": gr.venue_name if gr else "",
+        }
+        logger.debug("  game_pk=%d: loaded morning result from DB (%s @ %s)", game_pk, away_abbr, home_abbr)
+        return result
 
     except Exception as exc:
         logger.debug("Could not load morning result for game_pk=%d: %s", game_pk, exc)
