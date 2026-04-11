@@ -66,7 +66,13 @@ def run_monte_carlo(
       iterations_per_sec  : float
     """
     if n_workers is None:
-        n_workers = min(cpu_count(), 8)  # Cap at 8 to avoid overhead on large machines
+        import platform, multiprocessing
+        # macOS uses "spawn" start method in Python 3.9+, which breaks Pool with
+        # top-level scripts. Auto-detect and fall back to single-process mode.
+        if platform.system() == "Darwin" and multiprocessing.get_start_method(allow_none=True) != "fork":
+            n_workers = 1
+        else:
+            n_workers = min(cpu_count(), 8)  # Cap at 8 to avoid overhead on large machines
 
     start_time = time.perf_counter()
 

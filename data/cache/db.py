@@ -377,14 +377,19 @@ def save_player_stats(
 
 
 def get_player_stats(player_id: int, season: int, stat_type: str) -> Optional[dict]:
-    """Return stored stats dict or None if not found."""
+    """
+    Return stored stats as {"stats": {...}, "game_log": [...]} or None if not found.
+    The "stats" value is the flat stats dict; "game_log" is a list (may be empty).
+    """
     try:
         _get_engine()
         with get_session() as session:
             row = session.get(PlayerStats, (player_id, season, stat_type))
         if row is None:
             return None
-        return json.loads(row.stats_json) if row.stats_json else None
+        stats    = json.loads(row.stats_json)    if row.stats_json    else {}
+        game_log = json.loads(row.game_log_json) if row.game_log_json else []
+        return {"stats": stats, "game_log": game_log}
     except Exception as exc:
         logger.debug("get_player_stats failed: %s", exc)
         return None
@@ -396,9 +401,10 @@ def get_prior_stats(player_id: int, season: int, stat_type: str) -> dict:
     Used by bayesian_prior for prior-season anchoring.
     Returns {} (not None) so callers can safely .get() on result.
     """
-    result = get_player_stats(player_id, season, stat_type)
-    if result is None:
+    wrapped = get_player_stats(player_id, season, stat_type)
+    if wrapped is None:
         return {}
+    result = dict(wrapped.get("stats", {}))
     result["_source"] = "db"
     return result
 
