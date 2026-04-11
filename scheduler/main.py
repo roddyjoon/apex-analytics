@@ -84,6 +84,18 @@ def start_scheduler(dry_run: bool = False) -> None:
         replace_existing=True,
     )
 
+    # ── End-of-Day Results — 11:00 PM PT ─────────────────────────
+    scheduler.add_job(
+        func=_run_results,
+        trigger="cron",
+        hour=23,
+        minute=0,
+        id="end_of_day_results",
+        name="End-of-Day Results & Accuracy Report",
+        kwargs={"dry_run": dry_run},
+        replace_existing=True,
+    )
+
     # ── Calibration check — 3:00 AM PT (weekly, Monday only) ──────
     scheduler.add_job(
         func=_run_calibration_check,
@@ -101,6 +113,7 @@ def start_scheduler(dry_run: bool = False) -> None:
     logger.info("Apex Analytics Scheduler STARTED")
     logger.info("  Morning report:  08:00 AM PT daily")
     logger.info("  Pre-game update: 01:00 PM PT daily")
+    logger.info("  End-of-day:      11:00 PM PT daily")
     logger.info("  Elo update:      02:00 AM PT daily")
     logger.info("  Calibration:     03:00 AM PT Mondays")
     logger.info("  Mode: %s", "DRY RUN" if dry_run else "PRODUCTION")
@@ -197,6 +210,26 @@ def _run_elo_update(dry_run: bool = False) -> None:
 
     except Exception as exc:
         logger.error("Elo update job CRASHED: %s", exc, exc_info=True)
+
+
+def _run_results(dry_run: bool = False) -> None:
+    """End-of-day results job wrapper."""
+    try:
+        logger.info("SCHEDULED: Starting end-of-day results job...")
+        from scheduler.results_job import run_results_job
+        result = run_results_job(
+            game_date=date.today(),
+            send_email=True,
+            send_discord=False,
+            dry_run=dry_run,
+        )
+        logger.info(
+            "Results job complete: %d final, %d/%d correct (%.1f%%), Brier=%.4f",
+            result["n_final"], result["n_correct"], result["n_final"],
+            result["accuracy"] * 100, result["brier_score"],
+        )
+    except Exception as exc:
+        logger.error("Results job CRASHED: %s", exc, exc_info=True)
 
 
 def _run_calibration_check() -> None:

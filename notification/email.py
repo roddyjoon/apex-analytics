@@ -70,6 +70,268 @@ def send_report_email(
     return _send_via_resend(api_key, from_addr, recipients, subject, html_content)
 
 
+def send_results_email(
+    game_results:    list,
+    game_date:       date,
+    daily_correct:   int   = 0,
+    daily_total:     int   = 0,
+    daily_accuracy:  float = 0.0,
+    daily_brier:     float = 0.0,
+    season_stats:    Optional[dict] = None,
+    recipients:      Optional[list] = None,
+) -> bool:
+    """
+    Send end-of-day results email showing prediction vs. actual for every game.
+
+    game_results is a list of dicts with:
+      home_abbr, away_abbr, home_score, away_score, innings,
+      home_won (bool), pred_prob (float|None), correct (bool|None)
+    """
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not api_key:
+        logger.debug("RESEND_API_KEY not set — results email skipped.")
+        return False
+
+    if recipients is None:
+        to_env = os.environ.get("REPORT_EMAIL_TO", "").strip()
+        if not to_env:
+            logger.warning("REPORT_EMAIL_TO not set — results email skipped.")
+            return False
+        recipients = [a.strip() for a in to_env.split(",") if a.strip()]
+
+    from_addr = os.environ.get("REPORT_EMAIL_FROM", "onboarding@resend.dev").strip()
+
+    html_content = _build_results_email(
+        game_results, game_date,
+        daily_correct, daily_total, daily_accuracy, daily_brier,
+        season_stats or {},
+    )
+
+    date_str = game_date.strftime("%B %-d, %Y")
+    pct_str  = f"{daily_accuracy * 100:.0f}%" if daily_total else "—"
+    subject  = f"⚾ Apex Analytics — {date_str} · Results · {daily_correct}/{daily_total} ({pct_str})"
+
+    return _send_via_resend(api_key, from_addr, recipients, subject, html_content)
+
+
+def _build_results_email(
+    game_results:   list,
+    game_date:      date,
+    daily_correct:  int,
+    daily_total:    int,
+    daily_accuracy: float,
+    daily_brier:    float,
+    season_stats:   dict,
+) -> str:
+    """Build the end-of-day results digest email."""
+    date_long  = game_date.strftime("%A, %B %-d, %Y")
+    n_games    = len(game_results)
+    pct_str    = f"{daily_accuracy * 100:.1f}%" if daily_total else "—"
+    brier_str  = f"{daily_brier:.3f}"
+
+    # Brier color: ≤0.230 green, ≤0.250 blue, else red
+    if daily_brier <= 0.230:
+        brier_color = "#16a34a"
+    elif daily_brier <= 0.250:
+        brier_color = "#1a56db"
+    else:
+        brier_color = "#dc2626"
+
+    # Accuracy color: ≥58% green, ≥50% blue, else red
+    if daily_accuracy >= 0.58:
+        acc_color = "#16a34a"
+    elif daily_accuracy >= 0.50:
+        acc_color = "#1a56db"
+    else:
+        acc_color = "#dc2626"
+
+    # Season stats row
+    s_n       = season_stats.get("n_games", 0)
+    s_correct = season_stats.get("n_correct", 0)
+    s_acc     = season_stats.get("accuracy", 0.0)
+    s_brier   = season_stats.get("brier_score", 0.0)
+    s_acc_str = f"{s_acc * 100:.1f}%" if s_n else "—"
+    s_brier_str = f"{s_brier:.3f}" if s_n else "—"
+
+    # Sort: correct predictions first, then incorrect
+    sorted_results = sorted(game_results, key=lambda g: (
+        0 if g["correct"] is True else (1 if g["correct"] is False else 2),
+        g["away_abbr"],
+    ))
+
+    games_html = "\n".join(_result_game_block(g) for g in sorted_results)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Apex Analytics Results — {date_long}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:20px 0;">
+<tr><td align="center">
+<table width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;">
+
+  <!-- Header -->
+  <tr>
+    <td style="background:#1e293b;border-radius:8px 8px 0 0;padding:20px 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>
+            <div style="font-size:22px;font-weight:700;color:#f8fafc;letter-spacing:1px;">
+              ⚾ APEX ANALYTICS
+            </div>
+            <div style="font-size:13px;color:#94a3b8;margin-top:3px;">End-of-Day Results</div>
+          </td>
+          <td align="right">
+            <div style="font-size:12px;color:#94a3b8;">{date_long}</div>
+            <div style="font-size:13px;color:#f8fafc;margin-top:4px;">{n_games} Games</div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Daily Summary Banner -->
+  <tr>
+    <td style="background:#0f172a;padding:16px 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <!-- Accuracy -->
+          <td width="33%" style="text-align:center;border-right:1px solid #1e293b;">
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Today Correct</div>
+            <div style="font-size:28px;font-weight:700;color:{acc_color};">{daily_correct}/{daily_total}</div>
+            <div style="font-size:13px;font-weight:600;color:{acc_color};">{pct_str}</div>
+          </td>
+          <!-- Brier -->
+          <td width="33%" style="text-align:center;border-right:1px solid #1e293b;">
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Brier Score</div>
+            <div style="font-size:28px;font-weight:700;color:{brier_color};">{brier_str}</div>
+            <div style="font-size:11px;color:#475569;">target &lt; 0.240</div>
+          </td>
+          <!-- Season -->
+          <td width="33%" style="text-align:center;">
+            <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Season Record</div>
+            <div style="font-size:28px;font-weight:700;color:#f8fafc;">{s_correct}/{s_n}</div>
+            <div style="font-size:13px;color:#94a3b8;">{s_acc_str} &nbsp;·&nbsp; Brier {s_brier_str}</div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Column headers -->
+  <tr>
+    <td style="background:#1e293b;padding:8px 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;width:130px;">Matchup</td>
+          <td style="font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;text-align:center;">Our Prediction</td>
+          <td style="font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;text-align:center;width:90px;">Final Score</td>
+          <td style="font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;text-align:center;width:32px;"></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Game rows -->
+  {games_html}
+
+  <!-- Footer -->
+  <tr>
+    <td style="background:#1e293b;border-radius:0 0 8px 8px;padding:16px 24px;text-align:center;">
+      <p style="margin:0;font-size:11px;color:#475569;line-height:1.6;">
+        Apex Analytics · 7,000-iteration Monte Carlo + Elo + RF + LR ensemble<br>
+        Brier score measures calibration (0 = perfect, 0.25 = coin flip).<br>
+        Vegas benchmark accuracy: ~58.2%<br>
+        <strong style="color:#334155;">Educational tool only. Not financial advice.</strong>
+      </p>
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+
+def _result_game_block(g: dict) -> str:
+    """Render one completed game result as a table row."""
+    away     = g["away_abbr"]
+    home     = g["home_abbr"]
+    h_score  = g["home_score"]
+    a_score  = g["away_score"]
+    home_won = g["home_won"]
+    innings  = g.get("innings", 9)
+    pred     = g.get("pred_prob")
+    correct  = g.get("correct")
+
+    # Winner / loser display
+    winner   = home if home_won else away
+    winner_score = h_score if home_won else a_score
+    loser_score  = a_score if home_won else h_score
+    score_str = f"{winner_score}–{loser_score}"
+    if innings and innings > 9:
+        score_str += f" ({innings})"
+
+    # Prediction display
+    if pred is not None:
+        home_pct = int(round(pred * 100))
+        away_pct = 100 - home_pct
+        pred_winner = home if pred >= 0.50 else away
+        pred_pct    = home_pct if pred >= 0.50 else away_pct
+        fav_color   = "#1a56db"
+        pred_str    = (
+            f'<span style="color:{fav_color};font-weight:700;">{pred_winner} {pred_pct}%</span>'
+            f'<span style="color:#64748b;font-size:10px;"> / {away if pred >= 0.50 else home} {100 - pred_pct}%</span>'
+        )
+    else:
+        pred_str = '<span style="color:#94a3b8;font-style:italic;">No prediction</span>'
+
+    # Result icon
+    if correct is True:
+        icon     = "✅"
+        row_bg   = "#f0fdf4"   # light green tint
+        border_l = "#16a34a"
+    elif correct is False:
+        icon     = "❌"
+        row_bg   = "#fef2f2"   # light red tint
+        border_l = "#dc2626"
+    else:
+        icon     = "—"
+        row_bg   = "#ffffff"
+        border_l = "#e2e8f0"
+
+    return f"""
+  <tr>
+    <td style="padding:2px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="background:{row_bg};border-left:3px solid {border_l};border-bottom:1px solid #f1f5f9;">
+        <tr>
+          <td style="padding:10px 20px;width:130px;vertical-align:middle;">
+            <div style="font-size:14px;font-weight:700;color:#1e293b;">{away} @ {home}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:1px;">
+              {"🏆 " + winner + " wins" if correct is not None else winner + " wins"}
+            </div>
+          </td>
+          <td style="padding:10px 12px;vertical-align:middle;text-align:center;">
+            <div style="font-size:12px;">{pred_str}</div>
+          </td>
+          <td style="padding:10px 12px;vertical-align:middle;text-align:center;width:90px;">
+            <div style="font-size:16px;font-weight:700;color:#1e293b;">{score_str}</div>
+          </td>
+          <td style="padding:10px 16px 10px 4px;vertical-align:middle;text-align:center;width:28px;">
+            <span style="font-size:18px;">{icon}</span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>"""
+
+
 def send_test_email(recipient: str) -> bool:
     """Send a simple test email to verify Resend configuration."""
     api_key = os.environ.get("RESEND_API_KEY", "").strip()
