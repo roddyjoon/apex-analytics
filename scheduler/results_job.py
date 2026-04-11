@@ -70,12 +70,21 @@ def run_results_job(
             game_map = {g.game_pk: g for g in game_rows}
 
         if not game_map:
-            # Fallback: try the schedule ingestor
+            # Fallback: fetch schedule and build game_map from it
             from data.ingestors.mlb_schedule import fetch_schedule
+            from types import SimpleNamespace
             schedule = fetch_schedule(game_date)
-            game_pks = [g["game_pk"] for g in schedule]
-        else:
-            game_pks = list(game_map.keys())
+            game_map = {
+                g["game_pk"]: SimpleNamespace(
+                    game_pk        = g["game_pk"],
+                    home_team_abbr = g.get("home_team_abbr", "HOME"),
+                    away_team_abbr = g.get("away_team_abbr", "AWAY"),
+                    venue_name     = g.get("venue_name", ""),
+                )
+                for g in schedule
+            }
+
+        game_pks = list(game_map.keys())
 
         logger.info("Checking results for %d games...", len(game_pks))
     except Exception as exc:
