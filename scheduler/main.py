@@ -216,9 +216,19 @@ def _run_results(dry_run: bool = False) -> None:
     """End-of-day results job wrapper."""
     try:
         logger.info("SCHEDULED: Starting end-of-day results job...")
+        # APScheduler fires at 11 PM PT, but Railway runs UTC (7 AM next day).
+        # Use PT timezone explicitly so we grade the correct date's games.
+        from datetime import datetime, timezone, timedelta
+        pt_now = datetime.now(timezone(timedelta(hours=-7)))  # PDT = UTC-7
+        game_date_pt = pt_now.date()
+        # If it's past midnight PT but we're grading last night's games, go back 1 day
+        if pt_now.hour < 4:
+            game_date_pt = game_date_pt - timedelta(days=1)
+        logger.info("Grading games for %s (PT time: %s)", game_date_pt, pt_now.strftime("%H:%M"))
+
         from scheduler.results_job import run_results_job
         result = run_results_job(
-            game_date=date.today(),
+            game_date=game_date_pt,
             send_email=True,
             send_discord=False,
             dry_run=dry_run,
