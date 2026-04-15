@@ -85,6 +85,9 @@ def start_scheduler(dry_run: bool = False) -> None:
     )
 
     # ── End-of-Day Results — 11:00 PM PT ─────────────────────────
+    # misfire_grace_time=3600s: if Railway redeploys near 11 PM and the
+    # scheduler restarts within an hour of the scheduled time, the job
+    # still fires instead of being silently skipped.
     scheduler.add_job(
         func=_run_results,
         trigger="cron",
@@ -94,6 +97,7 @@ def start_scheduler(dry_run: bool = False) -> None:
         name="End-of-Day Results & Accuracy Report",
         kwargs={"dry_run": dry_run},
         replace_existing=True,
+        misfire_grace_time=3600,
     )
 
     # ── Calibration check — 3:00 AM PT (weekly, Monday only) ──────
